@@ -21,9 +21,6 @@ import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkState;
 
-/**
- * Created by obergner on 01.11.14.
- */
 public final class RedisAccountManager implements AccountManager {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -53,6 +50,13 @@ public final class RedisAccountManager implements AccountManager {
             this.log.info("Successfully created new account {}", newAccount);
 
             return newAccount;
+        } catch (final JedisDataException jde) {
+            if (ErrorCode.DUPLICATE_ACCOUNT_UUID.equals(jde.getMessage())) {
+                throw new DuplicateAccountUuidException(null);
+            } else if (ErrorCode.DUPLICATE_MMA.equals(jde.getMessage())) {
+                throw new MMAIdAlreadyMappedToAccountException(mmaId);
+            }
+            throw jde;
         }
     }
 

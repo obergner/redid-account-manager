@@ -2,6 +2,7 @@ package io.clerks.redis;
 
 import io.clerks.Account;
 import io.clerks.EmbeddedRedisServer;
+import io.clerks.MMAIdAlreadyMappedToAccountException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -26,12 +27,12 @@ public class RedisAccountManagerTest {
     private static final RedisAccountManager OBJECT_UNDER_TEST = new RedisAccountManager("127.0.0.1", PORT);
 
     @BeforeClass
-    public static final void initializeObjectUnderTest() throws IOException {
+    public static void initializeObjectUnderTest() throws IOException {
         OBJECT_UNDER_TEST.initialize();
     }
 
     @AfterClass
-    public static final void destroyObjectUnderTest() {
+    public static void destroyObjectUnderTest() {
         OBJECT_UNDER_TEST.destroy();
     }
 
@@ -60,6 +61,16 @@ public class RedisAccountManagerTest {
 
         final String secondaryMmaIdIndex = EMBEDDED_REDIS_SERVER.client().hget("account:mma:index", String.valueOf(newAccount.getMmaId()));
         assertEquals(newAccount.getUuid().toString(), secondaryMmaIdIndex);
+    }
+
+    @Test(expected = MMAIdAlreadyMappedToAccountException.class)
+    public void createAccountShouldRejectDuplicateMMA() throws Exception {
+        final String firstAccountName = this.testName.getMethodName() + "_1";
+        final String secondAccountName = this.testName.getMethodName() + "_2";
+        final long duplicateMmaId = 17866534277L;
+
+        OBJECT_UNDER_TEST.createAccount(firstAccountName, duplicateMmaId);
+        OBJECT_UNDER_TEST.createAccount(secondAccountName, duplicateMmaId);
     }
 
     @Test
