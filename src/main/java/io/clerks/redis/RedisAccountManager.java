@@ -40,10 +40,16 @@ public final class RedisAccountManager implements AccountManager {
     @Override
     public Account createAccount(final String name,
                                  final long mmaId) throws DuplicateAccountUuidException, MMAIdAlreadyMappedToAccountException {
+        return createAccount(Account.newAccount(name, mmaId));
+    }
+
+    /*
+     * Exposed for testing purposes only.
+     */
+    Account createAccount(final Account newAccount) throws DuplicateAccountUuidException, MMAIdAlreadyMappedToAccountException {
         checkState(this.scriptHandles != null, "RedisAccountManager has not yet been initialized - did you forget to call #initialize()?");
         try (final Jedis redisClient = this.redisClientPool.getResource()) {
-            this.log.info("Creating account [name:{}|mmaId:{}] ...", name, mmaId);
-            final Account newAccount = Account.newAccount(name, mmaId);
+            this.log.info("Creating account [{}] ...", newAccount);
             redisClient.evalsha(this.scriptHandles.createAccountScriptSha,
                     Collections.singletonList("account:mma:index"),
                     Arrays.asList(newAccount.getUuid().toString(), newAccount.getName(), String.valueOf(newAccount.getMmaId())));
@@ -52,9 +58,11 @@ public final class RedisAccountManager implements AccountManager {
             return newAccount;
         } catch (final JedisDataException jde) {
             if (ErrorCode.DUPLICATE_ACCOUNT_UUID.equals(jde.getMessage())) {
-                throw new DuplicateAccountUuidException(null);
+                this.log.warn("Illegal attempt to create [" + newAccount + "] with a duplicate UUID [" + newAccount.getUuid() + "]", jde);
+                throw new DuplicateAccountUuidException(newAccount.getUuid(), jde);
             } else if (ErrorCode.DUPLICATE_MMA.equals(jde.getMessage())) {
-                throw new MMAIdAlreadyMappedToAccountException(mmaId);
+                this.log.warn("Illegal attempt to create [" + newAccount + "] with a duplicate MMA-ID [" + newAccount.getMmaId() + "]", jde);
+                throw new MMAIdAlreadyMappedToAccountException(newAccount.getMmaId(), jde);
             }
             throw jde;
         }

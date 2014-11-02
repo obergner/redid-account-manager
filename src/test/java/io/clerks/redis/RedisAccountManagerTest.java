@@ -1,6 +1,7 @@
 package io.clerks.redis;
 
 import io.clerks.Account;
+import io.clerks.DuplicateAccountUuidException;
 import io.clerks.EmbeddedRedisServer;
 import io.clerks.MMAIdAlreadyMappedToAccountException;
 import org.junit.AfterClass;
@@ -11,6 +12,7 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -61,6 +63,22 @@ public class RedisAccountManagerTest {
 
         final String secondaryMmaIdIndex = EMBEDDED_REDIS_SERVER.client().hget("account:mma:index", String.valueOf(newAccount.getMmaId()));
         assertEquals(newAccount.getUuid().toString(), secondaryMmaIdIndex);
+    }
+
+    @Test(expected = DuplicateAccountUuidException.class)
+    public void createAccountShouldRejectDuplicateAccountUuid() throws Exception {
+        final UUID duplicateUuid = UUID.randomUUID();
+
+        final String firstAccountName = this.testName.getMethodName() + "_1";
+        final long firstMmaId = 4566789L;
+        final Account firstAccount = new Account(duplicateUuid, firstAccountName, firstMmaId);
+
+        final String secondAccountName = this.testName.getMethodName() + "_2";
+        final long secondMmaId = 78234567L;
+        final Account secondAccount = new Account(duplicateUuid, secondAccountName, secondMmaId);
+
+        OBJECT_UNDER_TEST.createAccount(firstAccount);
+        OBJECT_UNDER_TEST.createAccount(secondAccount);
     }
 
     @Test(expected = MMAIdAlreadyMappedToAccountException.class)
